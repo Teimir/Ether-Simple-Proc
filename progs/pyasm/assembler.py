@@ -2,55 +2,68 @@ import sys
 
 # Таблица опкодов (Big Endian)
 OPCODES = {
+    # Регистровые операции
     'MOV': {'RR': 0x10, 'IMM8': 0x70},
     'ADD': {'RR': 0x20, 'IMM8': 0x80},
     'SUB': {'RR': 0x30, 'IMM8': 0x90},
     'AND': {'RR': 0x40, 'IMM8': 0xA0},
     'OR': {'RR': 0x50, 'IMM8': 0xB0},
     'XOR': {'RR': 0x60, 'IMM8': 0xC0},
+    # Память и устройства
     'MOV_MEM': {'MEM': 0x90, 'REG': 0xA0},
     'IN': 0xD0,
     'OUT': 0xE0,
-    'JMP': 0xF0,
-    'JZ': 0xF1,
-    'JC': 0xF2,
+    # Управление потоком
+    'JMP': 0xD0,
+    'JZ': 0xD1,
+    'JC': 0xD2,
     'CALL': 0xF3,
+    # Одно-байтовые команды
     'NOP': 0x00,
     'HALT': 0xEF,
     'RET': 0xE4,
-    'RETI': 0xE5,
-    'EI': 0xF4,
-    'DI': 0xF5
+    'RETI': 0xE1,
+    'EI': 0xE2,
+    'DI': 0xE3
 }
 
+# Коды регистров
 REGISTERS = {'A': 0, 'B': 1, 'C': 2, 'D': 3}
 
 def parse_immediate(value, symbols=None):
+    """Парсинг непосредственного значения или метки"""
     value = value.strip().upper()
+    
     if symbols and value in symbols:
         return symbols[value]
+    
     if value.startswith('0X'):
         return int(value[2:], 16)
     elif value.startswith('0B'):
         return int(value[2:], 2)
+    elif value.startswith("'"):
+        return ord(value[1])
     else:
         return int(value)
 
 def parse_instruction(line, current_address, symbols=None, pass_num=1):
+    """Разбор строки ассемблера в машинный код."""
     line = line.split(';')[0].strip()
     if not line:
-        return None, current_address, None
+        return [], current_address, None  # Возвращаем пустой список вместо None
 
+    # Обработка меток
     if line.endswith(':'):
         label = line[:-1].strip()
         if not label:
             raise ValueError("Пустая метка")
-        return None, current_address, label
+        return [], current_address, label  # Возвращаем пустой список вместо None
 
     parts = [p.strip().upper() for p in line.replace(',', ' ').split() if p.strip()]
     if not parts:
-        return None, current_address, None
+        return [], current_address, None  # Возвращаем пустой список вместо None
 
+    # Обработка директивы ORG
     if parts[0] == 'ORG':
         if len(parts) != 2:
             raise ValueError(f"Директива ORG требует одного аргумента (адрес), получено: {line}")
@@ -60,11 +73,35 @@ def parse_instruction(line, current_address, symbols=None, pass_num=1):
                 raise ValueError(f"Новый адрес ORG ({new_address:04X}) меньше текущего ({current_address:04X})")
             padding = new_address - current_address
             if padding < 0:
-                return None, new_address, None
+                return [], new_address, None  # Возвращаем пустой список вместо None
             return [0] * padding, new_address, None
         except ValueError as e:
             raise ValueError(f"Неправильный адрес в ORG: {e}")
 
+    # Обработка директивы DB (Define Byte)
+    if parts[0] == 'DB':
+        if len(parts) < 2:
+            raise ValueError("Директива DB требует хотя бы одного значения")
+        
+        bytes_to_write = []
+        for value in parts[1:]:
+            try:
+                # Обработка строковых литералов
+                if value.startswith('"') and value.endswith('"'):
+                    for char in value[1:-1]:
+                        bytes_to_write.append(ord(char))
+                # Обработка числовых значений
+                else:
+                    byte_value = parse_immediate(value, symbols)
+                    if byte_value > 0xFF:
+                        raise ValueError(f"Значение {value} превышает 8 бит")
+                    bytes_to_write.append(byte_value)
+            except ValueError as e:
+                raise ValueError(f"Неправильное значение для DB: {e}")
+        
+        return bytes_to_write, current_address + len(bytes_to_write), None
+
+    # Обработка остальных команд (MOV, ADD, и т.д.)
     cmd = parts[0]
     
     if cmd in ['NOP', 'HALT', 'RET', 'RETI', 'EI', 'DI']:
@@ -157,13 +194,14 @@ def parse_instruction(line, current_address, symbols=None, pass_num=1):
         except ValueError:
             if symbols is not None:
                 raise ValueError(f"Неизвестная метка: {parts[1]}")
-            return None, current_address + 3, None
+            return [], current_address + 3, None  # Возвращаем пустой список вместо None
 
     else:
         raise ValueError(f"Неизвестная команда: {cmd}")
 
 def assemble(input_file, output_file):
-    with open(input_file, 'r') as f:
+    """Ассемблирование файла в машинный код."""
+    with open(input_file, 'r', encoding='utf-8') as f:
         lines = f.readlines()
 
     # Первый проход: сбор меток
@@ -204,9 +242,36 @@ def assemble(input_file, output_file):
             print(f"Ошибка в строке {line_num}: '{line}': {e}")
             return
 
+    # Запись в выходной файл
     with open(output_file, 'wb') as f:
         f.write(bytes(machine_code))
     print(f"Ассемблирование завершено. Результат в {output_file} (размер: {len(machine_code)} байт)")
+
+def binary_to_text(input_file, output_file, format_hex=True):
+    """
+    Читает бинарный файл и записывает его байты в текстовый файл.
+    
+    :param input_file: Путь к входному бинарному файлу.
+    :param output_file: Путь к выходному текстовому файлу.
+    :param format_hex: Если True, записывает байты в HEX-формате, иначе — в десятичном.
+    """
+    try:
+        with open(input_file, 'rb') as bin_file:
+            data = bin_file.read()
+        
+        with open(output_file, 'w') as txt_file:
+            for byte in data:
+                if format_hex:
+                    txt_file.write(f"{byte:02X} ")  # Запись в HEX (например, "FF ")
+                else:
+                    txt_file.write(f"{byte} ")  # Запись в десятичном виде (например, "255 ")
+        
+        print(f"Успешно! Байты записаны в {output_file}")
+    
+    except FileNotFoundError:
+        print("Ошибка: входной файл не найден.")
+    except Exception as e:
+        print(f"Произошла ошибка: {e}")
 
 if __name__ == '__main__':
     if len(sys.argv) != 3:
@@ -216,3 +281,6 @@ if __name__ == '__main__':
     input_file = sys.argv[1]
     output_file = sys.argv[2]
     assemble(input_file, output_file)
+    print("Create Hex file? Y - for create")
+    if input() == "Y":
+        binary_to_text(output_file, output_file+".hex", format_hex=True)

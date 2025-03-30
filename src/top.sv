@@ -8,6 +8,9 @@ wire [7:0] ram_data_to_r_line;
 wire [7:0] ram_data_from_r_line;
 wire ram_we;
 
+wire irq = 0;
+wire [7:0] io_data_i;
+
 ram u0(
   .clk_i         (clk_i),
   .rst_i         (rst_i),
@@ -27,11 +30,8 @@ core u1(
   .we_i          (ram_we),              
   .data_o        (ram_data_to_r_line),
  // IO A\D line
-  .irq_i         (),          
-  .io_data_i     (),
-  .io_data_o     (),
-  .io_addr_o     (),
-  .io_we_o       (),      
+  .irq_i         (irq),          
+  .io_data_i     (io_data_i)     
 );
 
   
