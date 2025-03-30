@@ -208,6 +208,32 @@ def assemble(input_file, output_file):
         f.write(bytes(machine_code))
     print(f"Ассемблирование завершено. Результат в {output_file} (размер: {len(machine_code)} байт)")
 
+def binary_to_text(input_file, output_file, format_hex=True):
+    """
+    Читает бинарный файл и записывает его байты в текстовый файл.
+    
+    :param input_file: Путь к входному бинарному файлу.
+    :param output_file: Путь к выходному текстовому файлу.
+    :param format_hex: Если True, записывает байты в HEX-формате, иначе — в десятичном.
+    """
+    try:
+        with open(input_file, 'rb') as bin_file:
+            data = bin_file.read()
+        
+        with open(output_file, 'w') as txt_file:
+            for byte in data:
+                if format_hex:
+                    txt_file.write(f"{byte:02X} ")  # Запись в HEX (например, "FF ")
+                else:
+                    txt_file.write(f"{byte} ")  # Запись в десятичном виде (например, "255 ")
+        
+        print(f"Успешно! Байты записаны в {output_file}")
+    
+    except FileNotFoundError:
+        print("Ошибка: входной файл не найден.")
+    except Exception as e:
+        print(f"Произошла ошибка: {e}")
+
 if __name__ == '__main__':
     if len(sys.argv) != 3:
         print("Использование: python assembler.py <input.asm> <output.bin>")
@@ -216,3 +242,6 @@ if __name__ == '__main__':
     input_file = sys.argv[1]
     output_file = sys.argv[2]
     assemble(input_file, output_file)
+    print("Create Hex file? Y - for create")
+    if input() == "Y":
+        binary_to_text(output_file, output_file+".hex", format_hex=True)

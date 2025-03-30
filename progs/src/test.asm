@@ -1,8 +1,16 @@
 MOV A, 0x55      ; Загрузить 0x55 в A
 MOV B, A         ; Скопировать A в B
 ADD A, B         ; A = A + B
-MOV [0x1000], A  ; Сохранить A в память
-IN A, 0x01       ; Чтение из порта 0x01
-OUT 0x02, B      ; Запись B в порт 0x02
-JMP 0x2000       ; Переход по адресу 0x2000
+MOV A, 0x05
+MOV B, 0x03
+MOV C, 0xFF
+MOV D, 0x01
+ADD A, B
+SUB B, D
+AND A, B
+OR C, D
+XOR A, C
+MOV A, 0xFF
+MOV C, 0x11
+ADD A, C
 HALT             ; Остановка процессора
