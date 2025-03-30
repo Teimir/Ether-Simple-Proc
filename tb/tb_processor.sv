@@ -62,12 +62,8 @@ initial begin
     $readmemh("out4.bin.hex", dut.u0.mem);
     #25
     rst = 1'b0;
-    #500
-    force dut.u1.irq_i = 1'b1;
+    @(dut.u2.irq_o);
     #100
-    force dut.u1.irq_i = 1'b0;
-    @(dut.u1.halt);
-    #10
     $display(" Registers: A=%h, B=%h, C=%h, D=%h", 
                  dut.u1.RF[0], dut.u1.RF[1], dut.u1.RF[2], dut.u1.RF[3]);
     $display("  Flags: Z=%b, C=%b, V=%b, S=%b, IF=%b",
