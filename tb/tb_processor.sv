@@ -18,10 +18,9 @@ always #5 clk = ~clk;
 // ТЕСТ 1: Базовые арифметические операции
 // ==============================================
 initial begin
-  $dumpfile("dump.vcd"); $dumpvars;
+   $dumpfile("dump.vcd"); $dumpvars;
    $monitor(" Registers: A=%h, B=%h, C=%h, D=%h", 
                  dut.u1.RF[0], dut.u1.RF[1], dut.u1.RF[2], dut.u1.RF[3]);
-
     rst = 1'b1;
     // Инициализация памяти для теста арифметики
     $readmemh("out.bin.hex", dut.u0.mem);
@@ -41,6 +40,20 @@ initial begin
     end else begin
         $display("TEST 1 PASSED!");
     end
+    #10
+    rst = 1'b1;
+    // Инициализация памяти для теста арифметики
+    $readmemh("out2.bin.hex", dut.u0.mem);
+    #25
+    rst = 1'b0;
+    @(dut.u1.halt);
+    #10
+    if (dut.u1.RF[1] != 8'h05 || dut.u0.mem[16'h0100] != 8'h05) begin
+        $display("TEST 2 FAILED!");
+    end else begin
+        $display("TEST 2 PASSED!");
+    end
+
 
     $display("All tests completed");
     $finish;

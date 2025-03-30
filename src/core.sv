@@ -27,6 +27,7 @@ module core(
   localparam INT_JUMP_S = 4'd9;  // Переход к обработчику
   localparam HALT_S     = 4'd10; // Состояние останова
   localparam V_S        = 4'd11;
+  localparam V2_S = 4'd12;
 
   // Определение битов флагов
   localparam FLAG_Z     = 0; // Zero
@@ -98,7 +99,7 @@ module core(
             // 3-байтовые команды
             4'h9, 4'hA, 4'hD: begin
               PC <= PC + 1;
-              state <= FETCH2_S;
+              state <= V_S;
             end
             // 1-байтовые команды
             default: state <= EXEC_S;
@@ -113,13 +114,15 @@ module core(
             // 3-байтовые команды
             4'h9, 4'hA, 4'hD: begin
               PC <= PC + 1;
-              state <= FETCH3_S;
+              state <= V2_S;
             end
             // 2-байтовые команды
             default: state <= EXEC_S;
           endcase
         end
         
+        V2_S: state <= FETCH3_S;
+
         FETCH3_S: begin
           instruction_3rd_byte <= data_i;
           state <= EXEC_S;
@@ -155,7 +158,7 @@ module core(
             // MOV [ADDR16], R
             4'h9: begin
               address_o <= addr16;
-              data_o <= RF[reg1];
+              data_o <= RF[reg2];
               we_i <= 1'b1;
             end
             
@@ -258,7 +261,7 @@ module core(
             end
             
             // MOV R, [ADDR16]
-            4'hA: RF[reg1] <= data_i;
+            4'hA: RF[reg2] <= data_i;
             
             // IN R, PORT8
             4'hB: RF[reg1] <= io_data_i;
@@ -327,10 +330,18 @@ module core(
   // Управление адресом памяти
   always @(*) begin
     case (state)
-      FETCH_S, FETCH2_S, FETCH3_S: address_o <= PC;
+      //V_S, V2_S, FETCH_S, FETCH2_S, FETCH3_S: address_o <= PC;
       EXEC_S: begin
         case (opcode)
-          4'h9, 4'hA: address_o <= addr16; // Для операций с памятью
+          4'h9:  address_o <= addr16;
+          4'hA: address_o <= addr16; // Для операций с памятью
+          default: address_o <= PC;
+        endcase
+      end
+      MEM_S: begin
+      case (opcode)
+          4'h9:  address_o <= addr16;
+          4'hA: address_o <= addr16; // Для операций с памятью
           default: address_o <= PC;
         endcase
       end

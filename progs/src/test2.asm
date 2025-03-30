@@ -1,3 +1,4 @@
 MOV A, 5
-MOV B, 3
+MOV [0x0100], A
+MOV B, [0x0100]
 HALT
