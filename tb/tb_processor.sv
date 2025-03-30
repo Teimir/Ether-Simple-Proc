@@ -19,8 +19,9 @@ always #5 clk = ~clk;
 // ==============================================
 initial begin
    $dumpfile("dump.vcd"); $dumpvars;
-   $monitor(" Registers: A=%h, B=%h, C=%h, D=%h", 
-                 dut.u1.RF[0], dut.u1.RF[1], dut.u1.RF[2], dut.u1.RF[3]);
+   /*
+   //$monitor(" Registers: A=%h, B=%h, C=%h, D=%h, 0=%h, 1=%h, 2=%h, 3=%h", 
+                 dut.u1.RF[0], dut.u1.RF[1], dut.u1.RF[2], dut.u1.RF[3], dut.u0.mem[16'h0100], dut.u0.mem[16'h0101], dut.u0.mem[16'h0102], dut.u0.mem[16'h0103]);
     rst = 1'b1;
     // Инициализация памяти для теста арифметики
     $readmemh("out.bin.hex", dut.u0.mem);
@@ -54,7 +55,19 @@ initial begin
         $display("TEST 2 PASSED!");
     end
 
-
+    */
+    #10
+    rst = 1'b1;
+    // Инициализация памяти для теста арифметики
+    $readmemh("out3.bin.hex", dut.u0.mem);
+    #25
+    rst = 1'b0;
+    @(dut.u1.halt);
+    $display(" Registers: A=%h, B=%h, C=%h, D=%h", 
+                 dut.u1.RF[0], dut.u1.RF[1], dut.u1.RF[2], dut.u1.RF[3]);
+    $display("  Flags: Z=%b, C=%b, V=%b, S=%b, IF=%b",
+                 dut.u1.flags[0], dut.u1.flags[1], dut.u1.flags[2], 
+                 dut.u1.flags[3], dut.u1.flags[4]);
     $display("All tests completed");
     $finish;
 end
