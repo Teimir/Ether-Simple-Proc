@@ -23,11 +23,14 @@ module core(
   localparam EXEC_S     = 4'd5;
   localparam MEM_S      = 4'd6;
   localparam WB_S       = 4'd7;
-  localparam INT_SAVE_S = 4'd8;  // Сохранение состояния при прерывании
-  localparam INT_JUMP_S = 4'd9;  // Переход к обработчику
-  localparam HALT_S     = 4'd10; // Состояние останова
-  localparam V_S        = 4'd11;
+  localparam HALT_S     = 4'd13; // Состояние останова
+  localparam V_S        = 4'd14;
   localparam V2_S = 4'd12;
+  localparam INT_SAVE1_S = 4'd8; // Сохранение PC младший байт
+  localparam INT_SAVE2_S = 4'd9; // Сохранение PC старший байт
+  localparam INT_SAVE3_S = 4'd10; // Сохранение флагов
+  localparam INT_JUMP_S = 4'd11;  // Переход к обработчику
+  localparam INT_JUMP2_S = 4'd15;
 
   // Определение битов флагов
   localparam FLAG_Z     = 0; // Zero
@@ -54,9 +57,12 @@ module core(
   // Временные регистры
   reg [7:0] alu_result;
   reg [8:0] alu_result_ext; // 9 бит для учета переноса
-  reg [15:0] int_save_pc;   // Для сохранения PC при прерывании
-  reg [7:0] int_save_flags; // Для сохранения флагов при прерывании
-  
+
+  reg [15:0] int_save_pc;   
+  reg [15:0] int_load_pc; 
+  reg [7:0] int_save_flags;   
+  reg int_pending;          // Флаг ожидания прерывания
+  reg irq_i_past;
   // Комбинационные сигналы
   wire [3:0] opcode = instruction[7:4];
   wire [1:0] reg1 = instruction[3:2];
@@ -64,15 +70,23 @@ module core(
   wire [7:0] imm8 = instruction_2nd_byte;
   wire [15:0] addr16 = {instruction_2nd_byte, instruction_3rd_byte};
 
+
+  always_ff @(posedge clk_i) begin
+     irq_i_past <= irq_i;
+  end
+
   // Логика следующего состояния
   always @(posedge clk_i or posedge rst_i) begin
+    if (irq_i_past == 1'b0 && irq_i == 1'b1) int_pending <= 1'b1;
     if (rst_i) begin
       state <= IDLE_S;
       PC <= 16'h0000;
-      SP <= 16'hFFFF;
+      SP <= 16'hFFF0;
       flags <= 8'b00000000;
       we_i <= 1'b0;
       io_we_o <= 1'b0;
+      int_pending <= 1'b0;
+      irq_i_past <= 1'b0;
       RF[0] <= '0;
       RF[1] <= '0;
       RF[2] <= '0;
@@ -192,8 +206,13 @@ module core(
             // EI/DI
             4'hE: begin
               case (instruction[3:0])
-                4'h0: flags[FLAG_IF] <= 1'b1; // EI
-                4'h1: flags[FLAG_IF] <= 1'b0; // DI
+                4'h1: begin
+                  flags <= int_save_flags;
+                  PC <= int_save_pc;
+                  state <= IDLE_S;
+                end
+                4'h2: flags[FLAG_IF] <= 1'b1; // EI
+                4'h3: flags[FLAG_IF] <= 1'b0; // DI
                 4'hF: begin /* HALT - обрабатывается отдельно */ end
               endcase
             end
@@ -272,35 +291,39 @@ module core(
             PC <= PC + 1;
           end
           
+          // Проверяем, есть ли ожидающее прерывание
+          if (int_pending) begin
+            state <= INT_SAVE1_S;
+            int_pending <= 1'b0;
+          end else begin
+            state <= IDLE_S;
+          end
+        end
+        
+        // Сохранение младшего байта PC
+        INT_SAVE1_S: begin
+          int_save_pc <= PC;
+          int_save_flags <= flags;
+          state <= INT_SAVE2_S;
+        end
+        
+        // Сохранение старшего байта PC
+        INT_SAVE2_S: begin
+          PC <= data_i;
+          state <= INT_SAVE3_S;
+        end
+        
+        // Сохранение флагов
+        INT_SAVE3_S: begin
+          PC[15:8] <= data_i; // Читаем адрес обработчика
           state <= IDLE_S;
-        end
-        
-        // Обработка прерываний
-        INT_SAVE_S: begin
-          // Сохраняем PC в стек
-          SP <= SP - 2;
-          address_o <= SP;
-          data_o <= int_save_pc[7:0];
-          we_i <= 1'b1;
-          state <= INT_JUMP_S;
-        end
-        
-        INT_JUMP_S: begin
-          // Сохраняем флаги в стек и переходим к обработчику
-          we_i <= 1'b0;
-          SP <= SP - 2;
-          address_o <= SP;
-          data_o <= int_save_flags;
-          we_i <= 1'b1;
-          PC <= IVT_ADDR;
-          flags[FLAG_IF] <= 1'b0; // Запрещаем прерывания
-          state <= FETCH_S;
         end
         
         HALT_S: begin
           // Останов процессора
           if (irq_i && flags[FLAG_IF]) begin
-            state <= INT_SAVE_S;
+            int_pending <= 1'b1;
+            state <= INT_SAVE1_S;
           end
         end
       endcase
@@ -309,12 +332,17 @@ module core(
 
   // Логика прерываний
   always @(posedge clk_i) begin
-    if (irq_i && flags[FLAG_IF] && state == WB_S && !halt) begin
-      int_save_pc <= PC;
-      int_save_flags <= flags;
-      state <= INT_SAVE_S;
+    if (rst_i) begin
+      int_pending <= 1'b0;
+    end else if (irq_i && flags[FLAG_IF] && !halt && !int_pending) begin
+      // Запоминаем запрос прерывания, если он разрешен
+      int_pending <= 1'b1;
+    end else if (state == INT_JUMP_S) begin
+      // Сбрасываем флаг после перехода к обработчику
+      int_pending <= 1'b0;
     end
   end
+
 
   // Останов процессора
   reg halt;
@@ -330,11 +358,10 @@ module core(
   // Управление адресом памяти
   always @(*) begin
     case (state)
-      //V_S, V2_S, FETCH_S, FETCH2_S, FETCH3_S: address_o <= PC;
+      V_S, V2_S, FETCH_S, FETCH2_S, FETCH3_S: address_o <= PC;
       EXEC_S: begin
         case (opcode)
-          4'h9:  address_o <= addr16;
-          4'hA: address_o <= addr16; // Для операций с памятью
+          4'h9, 4'hA: address_o <= addr16; // Для операций с памятью
           default: address_o <= PC;
         endcase
       end
@@ -345,7 +372,8 @@ module core(
           default: address_o <= PC;
         endcase
       end
-      INT_JUMP_S: address_o <= IVT_ADDR;
+      INT_SAVE1_S, INT_JUMP_S: address_o <= IVT_ADDR;
+      INT_SAVE2_S, INT_SAVE3_S: address_o <= IVT_ADDR + 16'b1;
       default: address_o <= PC;
     endcase
   end

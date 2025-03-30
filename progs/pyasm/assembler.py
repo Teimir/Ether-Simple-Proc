@@ -22,9 +22,9 @@ OPCODES = {
     'NOP': 0x00,
     'HALT': 0xEF,
     'RET': 0xE4,
-    'RETI': 0xE5,
-    'EI': 0xF4,
-    'DI': 0xF5
+    'RETI': 0xE1,
+    'EI': 0xE2,
+    'DI': 0xE3
 }
 
 # Коды регистров
