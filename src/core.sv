@@ -30,7 +30,6 @@ module core(
   localparam INT_SAVE2_S = 4'd9; // Сохранение PC старший байт
   localparam INT_SAVE3_S = 4'd10; // Сохранение флагов
   localparam INT_JUMP_S = 4'd11;  // Переход к обработчику
-  localparam INT_JUMP2_S = 4'd15;
 
   // Определение битов флагов
   localparam FLAG_Z     = 0; // Zero
@@ -46,7 +45,6 @@ module core(
   reg [3:0] state;
   reg [7:0] RF [0:3];  // Регистровый файл (A=0, B=1, C=2, D=3)
   reg [15:0] PC;       // Счетчик команд
-  reg [15:0] SP;       // Указатель стека
   reg [7:0] flags;     // Регистр флагов
   
   // Регистры для хранения инструкций
@@ -58,8 +56,7 @@ module core(
   reg [7:0] alu_result;
   reg [8:0] alu_result_ext; // 9 бит для учета переноса
 
-  reg [15:0] int_save_pc;   
-  reg [15:0] int_load_pc; 
+  reg [15:0] int_save_pc;
   reg [7:0] int_save_flags;   
   reg int_pending;          // Флаг ожидания прерывания
   reg irq_i_past;
@@ -69,6 +66,8 @@ module core(
   wire [1:0] reg2 = instruction[1:0];
   wire [7:0] imm8 = instruction_2nd_byte;
   wire [15:0] addr16 = {instruction_2nd_byte, instruction_3rd_byte};
+   // Останов процессора
+  reg halt;
 
 
   always_ff @(posedge clk_i) begin
@@ -81,7 +80,6 @@ module core(
     if (rst_i) begin
       state <= IDLE_S;
       PC <= 16'h0000;
-      SP <= 16'hFFF0;
       flags <= 8'b00000000;
       we_i <= 1'b0;
       io_we_o <= 1'b0;
@@ -344,8 +342,7 @@ module core(
   end
 
 
-  // Останов процессора
-  reg halt;
+ 
   always @(posedge clk_i) begin
     if (rst_i) begin
       halt <= 1'b0;

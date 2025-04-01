@@ -1,0 +1,8 @@
+.vscode
+# out.bin.hex
+# out2.bin.hex
+# out3.bin.hex
+# out4.bin.hex
+processor_tb.vvp
+dump.vcd
+# progs/out

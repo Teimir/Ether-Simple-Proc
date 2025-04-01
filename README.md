@@ -67,13 +67,14 @@ python assembler.py input.asm output.bin
 3. **Для симуляции процессора**:
 
 ```bash
-make simulate
+iverilog -o processor_tb.vvp -g2012 -s tb_processor .\src\ram.sv .\src\core.sv .\src\top.sv .\src\rtc.sv  .\tb\tb_processor.sv
+>> vvp processor_tb.vvp 
 ```
 
 4. **Для синтеза под ПЛИС**:
 
 ```bash
-make synth
+МОЛИТВЫ
 ```
 
 ## Структура репозитория
