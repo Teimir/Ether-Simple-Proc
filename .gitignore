@@ -6,5 +6,6 @@
 processor_tb.vvp
 dump.vcd
 # progs/out
-.db
-.output_files
+/db
+/output_files
+/incremental_db

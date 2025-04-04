@@ -1,7 +1,6 @@
 module top (
   input clk_i,
-  input rst_i,
-  output io_we_o
+  input rst_i
 );
 
 // RAM signals
@@ -14,7 +13,7 @@ wire ram_we;
 logic [7:0] io_data_i;
 wire [7:0] io_data_o;
 wire [7:0] io_addr_o;
-//wire io_we_o;
+wire io_we_o;
 
 // RTC signals
 wire rtc_irq;

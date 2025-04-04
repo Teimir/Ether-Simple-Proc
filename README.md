@@ -68,7 +68,9 @@ python assembler.py input.asm output.bin
 
 ```bash
 iverilog -o processor_tb.vvp -g2012 -s tb_processor .\src\ram.sv .\src\core.sv .\src\top.sv .\src\rtc.sv  .\tb\tb_processor.sv
->> vvp processor_tb.vvp 
+vvp processor_tb.vvp 
+или
+make icarus_sim (все комманды можно узнать через make help)
 ```
 
 4. **Для синтеза под ПЛИС**:
@@ -162,4 +164,4 @@ TG: @Letmeto
 GitHub: [@Teimir](https://github.com/Teimir)
 RTL дизайнер: Михаил Пастухов
 TG: @develomper
-GitHub: [@develomper](https://github.com/0x6D-developerBYmik34)
+GitHub: [@
