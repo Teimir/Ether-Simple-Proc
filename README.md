@@ -163,11 +163,3 @@ GitHub: [@Teimir](https://github.com/Teimir)
 RTL дизайнер: Михаил Пастухов
 TG: @develomper
 GitHub: [@develomper](https://github.com/0x6D-developerBYmik34)
-
-# develomper
-
-# develomper
-
-# develomper
-
-# develomper

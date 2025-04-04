@@ -159,9 +159,12 @@ module core(
             // XOR R1, R2
             4'h6: alu_result <= RF[reg1] ^ RF[reg2];
             
-            // MOV R, IMM8
-            4'h7: alu_result <= imm8;
-            
+            // MOV R, IMM8 | MOV R, R+R
+            4'h7: begin 
+              if(!instruction[2]) alu_result <= imm8;
+              else alu_result <= {RF[imm8[3:2]], RF[imm8[1:0]]};
+              if ({instruction[7:2], 2'b00} == 8'h74) we_i <= 1'b1;
+            end
             // ADD R, IMM8
             4'h8: alu_result_ext <= RF[reg1] + imm8;
             
@@ -215,7 +218,7 @@ module core(
           endcase
           
           // Переход в следующее состояние
-          if (opcode == 4'h9 || opcode == 4'hA || opcode == 4'hB || opcode == 4'hC) begin
+          if (opcode == 4'h9 || opcode == 4'hA || opcode == 4'hB || opcode == 4'hC || {instruction[7:2], 2'b00} == 8'h74) begin
             state <= MEM_S;
           end else begin
             state <= WB_S;
@@ -262,8 +265,10 @@ module core(
               flags[FLAG_V] <= 1'b0;
             end
             
-            // MOV R, IMM8
-            4'h7: RF[reg2] <= alu_result;
+            // MOV R, IMM8 | R, R+R
+            4'h7: begin 
+              if (!instruction[3]) RF[reg2] <= alu_result; 
+            end
             
             // ADD R, IMM8
             4'h8: begin
