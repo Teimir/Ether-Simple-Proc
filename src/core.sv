@@ -72,19 +72,17 @@ module core(
 
   always_ff @(posedge clk_i) begin
      irq_i_past <= irq_i;
+	  if (rst_i) irq_i_past <= 1'b0;
   end
 
   // Логика следующего состояния
-  always @(posedge clk_i or posedge rst_i) begin
-    if (irq_i_past == 1'b0 && irq_i == 1'b1) int_pending <= 1'b1;
+  always @(posedge clk_i) begin
     if (rst_i) begin
       state <= IDLE_S;
       PC <= 16'h0000;
       flags <= 8'b00000000;
       we_i <= 1'b0;
       io_we_o <= 1'b0;
-      int_pending <= 1'b0;
-      irq_i_past <= 1'b0;
       RF[0] <= '0;
       RF[1] <= '0;
       RF[2] <= '0;
@@ -169,14 +167,14 @@ module core(
             
             // MOV [ADDR16], R
             4'h9: begin
-              address_o <= addr16;
+              //address_o <= addr16;
               data_o <= RF[reg2];
               we_i <= 1'b1;
             end
             
             // MOV R, [ADDR16]
             4'hA: begin
-              address_o <= addr16;
+              //address_o <= addr16;
             end
             
             // IN R, PORT8
@@ -290,9 +288,8 @@ module core(
           end
           
           // Проверяем, есть ли ожидающее прерывание
-          if (int_pending) begin
+          if (int_pending & flags[FLAG_IF]) begin
             state <= INT_SAVE1_S;
-            int_pending <= 1'b0;
           end else begin
             state <= IDLE_S;
           end
@@ -320,7 +317,6 @@ module core(
         HALT_S: begin
           // Останов процессора
           if (irq_i && flags[FLAG_IF]) begin
-            int_pending <= 1'b1;
             state <= INT_SAVE1_S;
           end
         end
@@ -332,7 +328,7 @@ module core(
   always @(posedge clk_i) begin
     if (rst_i) begin
       int_pending <= 1'b0;
-    end else if (irq_i && flags[FLAG_IF] && !halt && !int_pending) begin
+    end else if (irq_i_past == 1'b0 && irq_i == 1'b1)begin
       // Запоминаем запрос прерывания, если он разрешен
       int_pending <= 1'b1;
     end else if (state == INT_JUMP_S) begin
@@ -348,30 +344,30 @@ module core(
       halt <= 1'b0;
     end else if (state == EXEC_S && opcode == 4'hE && instruction[3:0] == 4'hF) begin
       halt <= 1'b1;
-      state <= HALT_S;
     end
   end
 
   // Управление адресом памяти
-  always @(*) begin
+  always_comb begin
+  address_o = PC;
     case (state)
-      V_S, V2_S, FETCH_S, FETCH2_S, FETCH3_S: address_o <= PC;
+      V_S, V2_S, FETCH_S, FETCH2_S, FETCH3_S: address_o = PC;
       EXEC_S: begin
         case (opcode)
-          4'h9, 4'hA: address_o <= addr16; // Для операций с памятью
-          default: address_o <= PC;
+          4'h9, 4'hA: address_o = addr16; // Для операций с памятью
+          default: address_o = PC;
         endcase
       end
       MEM_S: begin
       case (opcode)
-          4'h9:  address_o <= addr16;
-          4'hA: address_o <= addr16; // Для операций с памятью
-          default: address_o <= PC;
+          4'h9:  address_o = addr16;
+          4'hA: address_o = addr16; // Для операций с памятью
+          default: address_o = PC;
         endcase
       end
-      INT_SAVE1_S, INT_JUMP_S: address_o <= IVT_ADDR;
-      INT_SAVE2_S, INT_SAVE3_S: address_o <= IVT_ADDR + 16'b1;
-      default: address_o <= PC;
+      INT_SAVE1_S, INT_JUMP_S: address_o = IVT_ADDR;
+      INT_SAVE2_S, INT_SAVE3_S: address_o = IVT_ADDR + 16'b1;
+      default: address_o = PC;
     endcase
   end
 endmodule
