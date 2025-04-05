@@ -300,22 +300,22 @@ module core(
           end
         end
         
-        // Сохранение младшего байта PC
+        // Сохранение PC
         INT_SAVE1_S: begin
           int_save_pc <= PC;
           int_save_flags <= flags;
           state <= INT_SAVE2_S;
         end
         
-        // Сохранение старшего байта PC
+        // Установка PC на обработчик прерываний нижние биты
         INT_SAVE2_S: begin
           PC <= data_i;
           state <= INT_SAVE3_S;
         end
         
-        // Сохранение флагов
+        // Установка PC на обработчик прерываний верхние биты
         INT_SAVE3_S: begin
-          PC[15:8] <= data_i; // Читаем адрес обработчика
+          PC[15:8] <= data_i;
           state <= IDLE_S;
         end
         
